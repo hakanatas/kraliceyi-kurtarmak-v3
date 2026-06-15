@@ -109,7 +109,7 @@ export function generateCertificate(playerName, score, lang = 'tr', totalStars =
   ctx.strokeRect(200, 150, canvas.width - 400, 120);
 
   ctx.fillStyle = gold;
-  ctx.font = 'bold 50px "Cinzel", "Playfair Display", "Georgia", serif';
+  ctx.font = 'bold 50px "Playfair Display", "Georgia", serif';
   ctx.fillText(activeLang.kingdom, canvas.width / 2, 190);
   
   ctx.fillStyle = cream;

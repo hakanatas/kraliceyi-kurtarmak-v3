@@ -44,11 +44,6 @@
           <span style="font-size: 0.85rem; font-weight: bold;" id="pencilPercent">100%</span>
         </div>
 
-        <!-- Stardust Counter -->
-        <div class="stardust-chip" id="stardustChip" title="Yıldız Tozu: ücretsiz çözüm adımı hakkı">
-          ✨ <span data-i18n="stardust-lbl">Yıldız Tozu</span>: <span id="stardustCount">1</span>
-        </div>
-
         <!-- Background Animation Toggle -->
         <button class="icon-btn" id="bgToggle" aria-label="Arka Plan Parçacıklarını Aç/Kapat" title="Arka Plan Parçacıklarını Aç/Kapat">
           <span id="bgOnIcon" style="font-size: 1.1rem; line-height: 1;">✨</span>
@@ -351,7 +346,7 @@
         <button class="icon-btn close-btn" id="btnCloseModal" aria-label="Kapat">&times;</button>
 
         <!-- Chapter Title & Task progress tracker -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+        <div class="modal-topbar" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: var(--space-sm);">
           <div class="font-accent text-gold" style="font-size: 0.9rem; letter-spacing: 0.1em;" id="chapterLabel">BÖLÜM 1</div>
           <div class="text-emerald" style="font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.05);" id="taskProgressLabel">Görev 1 / 2</div>
         </div>
@@ -421,15 +416,13 @@
             <div class="choice-row" id="choiceRow" style="display: none;"></div>
 
             <div class="flex gap-md" style="margin-top: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn--secondary" id="btnShowHint" data-i18n="btn-hint">💡 İpucu (-5 ⚡)</button>
-              <button class="btn btn--secondary" id="btnStardust" data-i18n="btn-stardust">✨ Yıldız Tozu: İlk Adımı Göster</button>
+              <button class="btn btn--secondary" id="btnShowHint" data-i18n="btn-hint">💡 İpucu Adımı Göster</button>
               <button class="btn btn--primary" id="btnSubmitAnswer" data-i18n="btn-submit">Kapıyı Aç 🗝️</button>
             </div>
           </div>
 
-          <!-- Alert messages/Hints/Steps/Solutions -->
-          <div class="info-box info-box--hint" id="hintBox">İpucu açıklaması...</div>
-          <div class="info-box info-box--step" id="stepBox">İlk çözüm adımı...</div>
+          <!-- Alert messages/Hints/Solutions -->
+          <div class="info-box info-box--hint" id="hintBox"></div>
           <div class="info-box info-box--solution" id="solutionBox">Çözüm açıklaması...</div>
         </div>
 

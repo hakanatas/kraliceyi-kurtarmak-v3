@@ -1,5 +1,5 @@
 /* Design System for "Kraliçeyi Kurtarmak" */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Montserrat:wght@400;500;700&family=Outfit:wght@300;400;600;800&family=Caveat:wght@700&family=Comfortaa:wght@400;600;700&family=Fredoka:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800;900&family=Montserrat:wght@400;500;700&family=Outfit:wght@300;400;600;800&family=Caveat:wght@700&family=Comfortaa:wght@400;600;700&display=swap');
 
 :root {
   /* Harmonious Light/Bright Fantasy Color Palette */
@@ -38,8 +38,8 @@
 
   --transition-smooth: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
   --font-main: 'Comfortaa', sans-serif;
-  --font-headings: 'Fredoka', sans-serif;
-  --font-accent: 'Cinzel', serif;
+  --font-headings: 'Baloo 2', 'Comfortaa', sans-serif;
+  --font-accent: 'Playfair Display', Georgia, serif;
   --font-handwritten: 'Caveat', cursive;
 }
 
@@ -715,6 +715,12 @@ header {
   top: var(--space-md);
   right: var(--space-md);
   font-size: 1.5rem;
+  z-index: 5;
+}
+
+/* Modal üst satırı (bölüm + görev çipi): kapatma butonuna yer aç */
+.modal-topbar {
+  padding-right: 44px;
 }
 
 /* Character Dialogue Box */
@@ -2033,6 +2039,34 @@ header {
   .input-container {
     justify-content: space-between;
   }
+  /* Modal başlığı mobilde taşmasın */
+  #puzzleTitle {
+    font-size: 1.3rem !important;
+    line-height: 1.2;
+  }
+  .modal-topbar {
+    padding-right: 40px;
+  }
+  .kazanim-badge {
+    font-size: 0.72rem;
+  }
+  /* Mantık tablosu (8. kapı) dar ekrana sığsın — yatay kaydırma gerekmesin */
+  .logic-table {
+    font-size: 0.68rem;
+  }
+  .logic-table th,
+  .logic-table td {
+    padding: 5px 2px;
+  }
+  .cell-status,
+  .cell-count {
+    font-size: 0.66rem;
+  }
+  /* Cevap girişi mobilde tam genişlik */
+  .answer-input {
+    width: 100%;
+    flex: 1;
+  }
 }
 
 /* Device landscape configuration overrides */
@@ -3257,10 +3291,31 @@ h1, h2, h3, h4, h5, h6, .hero-title, .about-title, .logo {
   cursor: default;
 }
 
-/* --- İlk adım kutusu --- */
-.info-box--step {
-  border-left: 4px solid #7c3aed;
-  background: rgba(124, 58, 237, 0.07);
+/* --- Kademeli ipucu adımları --- */
+.hint-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  line-height: 1.5;
+}
+.hint-step + .hint-step {
+  border-top: 1px dashed rgba(194, 65, 12, 0.25);
+  margin-top: 2px;
+}
+.hint-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
 }
 
 /* --- Çizim alanı --- */

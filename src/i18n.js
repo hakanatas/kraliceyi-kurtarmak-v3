@@ -10,7 +10,9 @@ const LANGS = ['tr', 'en', 'ru'];
 const v3UI = {
   tr: {
     "node-5-text": "Erzak Kamyonları",
-    "btn-hint": "💡 İpucu (-5 ⚡)",
+    "btn-hint": "💡 İpucu Adımı Göster",
+    "btn-hint-next": "💡 Sonraki İpucu Adımı",
+    "hint-all-shown": "✓ Tüm ipucu adımları gösterildi",
     "input-placeholder": "Cevabın...",
 
     // İsim diyaloğu
@@ -94,7 +96,9 @@ const v3UI = {
   },
   en: {
     "node-5-text": "Supply Trucks",
-    "btn-hint": "💡 Hint (-5 ⚡)",
+    "btn-hint": "💡 Show a Hint Step",
+    "btn-hint-next": "💡 Next Hint Step",
+    "hint-all-shown": "✓ All hint steps shown",
     "input-placeholder": "Your answer...",
     "about-p1": "In this interactive game adapted from <strong>Vladimir Tumanov</strong>'s globally beloved novel <em>\"Save the Queen\"</em>, you will explore the magical world of mathematics!",
 
@@ -171,7 +175,9 @@ const v3UI = {
   },
   ru: {
     "node-5-text": "Грузовики с припасами",
-    "btn-hint": "💡 Подсказка (-5 ⚡)",
+    "btn-hint": "💡 Показать шаг подсказки",
+    "btn-hint-next": "💡 Следующий шаг",
+    "hint-all-shown": "✓ Все шаги показаны",
     "input-placeholder": "Твой ответ...",
     "about-p1": "В этой интерактивной игре, созданной по мотивам любимого во всем мире романа <strong>Владимира Туманова</strong> <em>«Королеву в заложники!»</em>, ты откроешь для себя волшебный мир математики!",
 

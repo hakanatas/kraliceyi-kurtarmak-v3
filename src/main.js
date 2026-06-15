@@ -20,9 +20,9 @@ let isBgActive = true;
 let currentOpenPuzzle = null; // { gateId, tasks, solved }
 let currentTaskIndex = 0;
 let gateWrongs = 0;   // bu kapıdaki yanlış sayısı (yıldız hesabı)
-let gateHints = 0;    // bu kapıda ücretli ipucu kullanımı
+let gateHintsUsed = false; // bu kapıda ipucu kullanıldı mı (yıldız hesabı)
 let taskAttempts = 0; // bu görevdeki yanlış sayısı (kademeli yardım)
-let hintCharged = false;
+let hintIndex = 0;    // bu görevde açılan ipucu adımı sayısı
 let sketchPad = null;
 let sketchOpen = false;
 let sketchRewarded = false;
@@ -53,7 +53,6 @@ const duelScreen = $('duelScreen');
 
 const pencilBar = $('pencilBar');
 const pencilPercent = $('pencilPercent');
-const stardustCount = $('stardustCount');
 
 const puzzleModal = $('puzzleModal');
 const chapterLabel = $('chapterLabel');
@@ -69,10 +68,8 @@ const pInput = $('pInput');
 const inputContainer = $('inputContainer');
 const choiceRow = $('choiceRow');
 const btnShowHint = $('btnShowHint');
-const btnStardust = $('btnStardust');
 const btnSubmitAnswer = $('btnSubmitAnswer');
 const hintBox = $('hintBox');
-const stepBox = $('stepBox');
 const solutionBox = $('solutionBox');
 const padlockWrapper = $('padlockWrapper');
 const magicKey = $('magicKey');
@@ -125,8 +122,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('soundToggle').addEventListener('click', handleSoundToggle);
   $('bgToggle').addEventListener('click', handleBgToggle);
   $('btnCloseModal').addEventListener('click', closeModal);
-  btnShowHint.addEventListener('click', toggleHint);
-  btnStardust.addEventListener('click', useStardust);
+  btnShowHint.addEventListener('click', revealNextHint);
   btnSubmitAnswer.addEventListener('click', handleSubmitAnswer);
   pInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); btnSubmitAnswer.click(); }
@@ -369,7 +365,6 @@ function updateHUD() {
   if (state.pencilEnergy > 60) pencilBar.style.background = 'linear-gradient(90deg, #d97706, #fbbf24)';
   else if (state.pencilEnergy > 30) pencilBar.style.background = 'linear-gradient(90deg, #ea580c, #f97316)';
   else pencilBar.style.background = 'linear-gradient(90deg, #be123c, #f43f5e)';
-  stardustCount.textContent = state.stardust;
 }
 
 function changeEnergy(delta) {
@@ -482,10 +477,8 @@ function checkCompanionJoin(gateId) {
   companions.forEach(c => {
     if (c.joinAfterGate === gateId && !state.companions.includes(c.id)) {
       state.companions.push(c.id);
-      state.stardust += 1;
       saveState(state);
       renderTeamChips();
-      updateHUD();
       showToast(t('companion-join').replace('{name}', compName(currentLang, c.id)));
     }
   });
@@ -533,7 +526,7 @@ function openPuzzleModal(gateId, isAlreadySolved = false) {
   const tasks = generateTasks(gateId);
   currentOpenPuzzle = { gateId, tasks, solved: isAlreadySolved };
   gateWrongs = 0;
-  gateHints = 0;
+  gateHintsUsed = false;
 
   switchTab(true);
   const meta = gateText(currentLang, gateId);
@@ -578,10 +571,8 @@ function openPuzzleModal(gateId, isAlreadySolved = false) {
     solutionBox.innerHTML = `<p style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">🎉 ${solTitle}</p>${task.solution(currentLang)}`;
     solutionBox.classList.add('info-box--active');
     hintBox.classList.remove('info-box--active');
-    stepBox.classList.remove('info-box--active');
     btnSubmitAnswer.style.display = 'none';
     btnShowHint.style.display = 'none';
-    btnStardust.style.display = 'none';
   } else {
     setupTask(0);
   }
@@ -595,7 +586,7 @@ function setupTask(idx) {
   const { gateId, tasks } = currentOpenPuzzle;
   currentTaskIndex = idx;
   taskAttempts = 0;
-  hintCharged = false;
+  hintIndex = 0;
   sketchRewarded = false;
   sketchOpen = false;
   sketchWrap.style.display = 'none';
@@ -613,18 +604,49 @@ function setupTask(idx) {
   visWorkarea.innerHTML = '';
   task.render(visWorkarea, currentLang);
 
-  hintBox.textContent = task.hint(currentLang);
+  hintBox.innerHTML = '';
   hintBox.classList.remove('info-box--active');
-  stepBox.classList.remove('info-box--active');
   solutionBox.classList.remove('info-box--active');
 
   setupAnswerUI(task, false);
   btnSubmitAnswer.textContent = t('btn-submit');
   btnSubmitAnswer.style.display = 'inline-flex';
   btnShowHint.style.display = 'inline-flex';
-  btnStardust.style.display = 'inline-flex';
+  btnShowHint.disabled = false;
+  btnShowHint.textContent = t('btn-hint');
   btnSubmitAnswer.removeAttribute('data-mode');
   padlockWrapper.classList.remove('padlock-wrapper--unlocked');
+}
+
+// Kademeli + dinamik ipucu: her çağrı bir sonraki adımı açar ve canlı görselde gösterir
+function revealNextHint() {
+  if (!currentOpenPuzzle) return;
+  const task = currentOpenPuzzle.tasks[currentTaskIndex];
+  const steps = task.hints(currentLang);
+  if (hintIndex >= steps.length) return;
+
+  playSoundEffect(playClick);
+  if (!gateHintsUsed) gateHintsUsed = true;
+
+  const step = steps[hintIndex];
+  const item = document.createElement('div');
+  item.className = 'hint-step';
+  item.innerHTML = `<span class="hint-step-num">${hintIndex + 1}</span><span>${step.text}</span>`;
+  hintBox.appendChild(item);
+  hintBox.classList.add('info-box--active');
+
+  // Adımı canlı görselin üstünde dinamik olarak göster
+  if (typeof step.apply === 'function') {
+    try { step.apply(visWorkarea); } catch (e) { /* görsel adımı atlanır */ }
+  }
+
+  hintIndex++;
+  if (hintIndex >= steps.length) {
+    btnShowHint.disabled = true;
+    btnShowHint.textContent = t('hint-all-shown');
+  } else {
+    btnShowHint.textContent = t('btn-hint-next');
+  }
 }
 
 // Sayı girişi veya tıklanabilir şıklar
@@ -672,35 +694,8 @@ function closeModal() {
 }
 
 // ---------------------------------------------------------------------------
-// İpucu, yıldız tozu, sesli okuma, çizim
+// Sesli okuma, çizim
 // ---------------------------------------------------------------------------
-function toggleHint() {
-  playSoundEffect(playClick);
-  if (!hintBox.classList.contains('info-box--active') && !hintCharged) {
-    hintCharged = true;
-    gateHints++;
-    changeEnergy(-5);
-  }
-  hintBox.classList.toggle('info-box--active');
-}
-
-function useStardust() {
-  playSoundEffect(playClick);
-  if (!currentOpenPuzzle) return;
-  const task = currentOpenPuzzle.tasks[currentTaskIndex];
-  if (state.stardust > 0) {
-    state.stardust--;
-    saveState(state);
-    updateHUD();
-    stepBox.innerHTML = `<strong>${t('step-reveal-title')}</strong> ${task.firstStep(currentLang)}`;
-    stepBox.classList.add('info-box--active');
-  } else {
-    stepBox.textContent = t('stardust-empty');
-    stepBox.classList.add('info-box--active');
-    setTimeout(() => stepBox.classList.remove('info-box--active'), 2500);
-  }
-}
-
 function speakQuestion() {
   if (!window.speechSynthesis) return;
   playSoundEffect(playClick);
@@ -833,9 +828,7 @@ function evaluateAnswer(task, val) {
       if (b.classList.contains(`choice-btn--${task.answer}`)) b.classList.add('choice-btn--correct');
     });
     hintBox.classList.remove('info-box--active');
-    stepBox.classList.remove('info-box--active');
     btnShowHint.style.display = 'none';
-    btnStardust.style.display = 'none';
 
     if (currentTaskIndex < tasks.length - 1) {
       solutionBox.innerHTML = `<p style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">${t('correct-task-next')}</p>${task.solution(currentLang)}`;
@@ -845,7 +838,7 @@ function evaluateAnswer(task, val) {
       btnSubmitAnswer.style.display = 'inline-flex';
     } else {
       // Kapı tamamlandı: yıldız + enerji + kayıt
-      const stars = (gateWrongs === 0 && gateHints === 0) ? 3 : (gateWrongs <= 2 ? 2 : 1);
+      const stars = (gateWrongs === 0 && !gateHintsUsed) ? 3 : (gateWrongs <= 2 && hintIndex < 2 ? 2 : 1);
       state.stars[gateId] = Math.max(state.stars[gateId] || 0, stars);
       if (!state.unlockedGates.includes(gateId)) state.unlockedGates.push(gateId);
       state.activeGate = gateId + 1;
@@ -893,13 +886,8 @@ function evaluateAnswer(task, val) {
       speechText.textContent = t(key).replace('{name}', displayName());
     }
 
-    // Kademeli yardım: 2. yanlışta ipucu (ücretsiz), 3. yanlışta ilk adım
-    if (taskAttempts === 2) {
-      hintBox.classList.add('info-box--active');
-    } else if (taskAttempts >= 3) {
-      stepBox.innerHTML = `<strong>${t('step-reveal-title')}</strong> ${task.firstStep(currentLang)}`;
-      stepBox.classList.add('info-box--active');
-    }
+    // Kademeli yardım: her yanlıştan sonra bir sonraki ipucu adımını otomatik aç (dinamik gösterimle)
+    revealNextHint();
   }
 }
 
@@ -1015,9 +1003,24 @@ function changeLanguage(lang) {
     speechName.textContent = meta.character;
     speechText.textContent = meta.narrative;
     questionText.textContent = task.question(lang);
-    hintBox.textContent = task.hint(lang);
     visWorkarea.innerHTML = '';
     task.render(visWorkarea, lang);
+    // Açılmış ipucu adımlarını yeni dilde yeniden kur ve görseli tazele
+    if (!solved && hintIndex > 0) {
+      const steps = task.hints(lang);
+      hintBox.innerHTML = '';
+      for (let i = 0; i < hintIndex && i < steps.length; i++) {
+        const item = document.createElement('div');
+        item.className = 'hint-step';
+        item.innerHTML = `<span class="hint-step-num">${i + 1}</span><span>${steps[i].text}</span>`;
+        hintBox.appendChild(item);
+        if (typeof steps[i].apply === 'function') {
+          try { steps[i].apply(visWorkarea); } catch (e) { /* atla */ }
+        }
+      }
+      hintBox.classList.add('info-box--active');
+      btnShowHint.textContent = hintIndex >= steps.length ? t('hint-all-shown') : t('btn-hint-next');
+    }
     if (solved) {
       taskProgressLabel.textContent = t('modal-completed');
       const solTitle = { tr: 'Bu Kapı Daha Önce Açıldı!', en: 'This gate was opened before!', ru: 'Эти ворота уже были открыты!' }[lang];

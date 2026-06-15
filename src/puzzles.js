@@ -1,6 +1,11 @@
 // V3 Soru Motoru: her kapı için parametrik (rastgele üretilen) görevler.
-// Her görev; soru/ipucu/çözüm metinlerini 3 dilde üretir, yaygın yanlışlar için
+// Her görev; soru/çözüm metinlerini 3 dilde üretir, yaygın yanlışlar için
 // teşhis mesajları taşır ve öğrencinin KENDİSİNİN yaptığı etkileşimli modeller çizer.
+//
+// İPUCU SİSTEMİ (v3.1): Tek bir "İpucu" butonu vardır. Her tıklamada bir sonraki
+// çözüm adımı açılır (kademeli). Mümkün olan her adımda `apply()` ile adım, canlı
+// görselin üstünde DİNAMİK olarak gösterilir (kutu dolar, terazi dengelenir,
+// hücre boyanır, sandık seçilir...). Yıldız Tozu kaldırıldı.
 import { playClick } from './audio.js';
 import { ui } from './i18n.js';
 
@@ -14,6 +19,13 @@ function pick(arr) {
   return arr[randInt(0, arr.length - 1)];
 }
 const L = (lang, o) => o[lang] !== undefined ? o[lang] : o.tr;
+
+// Bir step-input'a değer yazıp 'input' olayını tetikler (dinamik ipucu için)
+function fireVal(el, val) {
+  if (!el) return;
+  el.value = String(val);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
 
 // Kapı meta bilgisi (anlatıcı avatarları)
 export const gateAvatars = { 1: "👑", 2: "👧", 3: "👦", 4: "👦", 5: "👦", 6: "👧", 7: "👁️", 8: "🧝‍♀️" };
@@ -39,7 +51,6 @@ function bindStepInput(input, expected, onCorrect) {
 // KAPI 1 — Sihirli Kalem (Ters İşlem)
 // ---------------------------------------------------------------------------
 function makePipelineTask(taskNo, mode) {
-  // mode 'mul': x*a + b = c  |  mode 'div': x/d + e = f
   let p = {};
   if (mode === 'mul') {
     const a = pick([2, 3, 4, 5]);
@@ -54,7 +65,6 @@ function makePipelineTask(taskNo, mode) {
   }
 
   const isMul = mode === 'mul';
-  // Türkçe yönelme eki: 2'ye, 3'e, 4'e, 5'e
   const trDat = (n) => n === 2 ? "2'ye" : `${n}'e`;
   const opStr = isMul ? `× ${p.a}` : `÷ ${p.d}`;
   const addStr = isMul ? `+ ${p.b}` : `+ ${p.e}`;
@@ -73,12 +83,32 @@ function makePipelineTask(taskNo, mode) {
         ru: `Задание ${taskNo}: Волшебная машина ${isMul ? `умножает число на ${factor}` : `делит число на ${factor}`}, затем прибавляет ${added} и получает ${result}. Какое число было в начале?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Geriye doğru çalış! Önce sonuçtan (${result}) ${added} çıkar. Sonra ${isMul ? `çarpmanın tersi olan bölmeyi uygula (${trDat(factor)} böl)` : `bölmenin tersi olan çarpmayı uygula (${factor} ile çarp)`}.`,
-        en: `Hint: Work backwards! First subtract ${added} from the result ${result}. Then ${isMul ? `apply the inverse of multiplication: divide by ${factor}` : `apply the inverse of division: multiply by ${factor}`}.`,
-        ru: `Подсказка: Иди от конца! Сначала вычти ${added} из результата ${result}. Затем ${isMul ? `выполни обратное умножению действие: раздели на ${factor}` : `выполни обратное делению действие: умножь на ${factor}`}.`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Geriye doğru çalış! Toplamanın tersi çıkarma, çarpmanın tersi bölmedir. Boru hattını sondan başa doğru takip et.`,
+            en: `Work backwards! The inverse of adding is subtracting, of multiplying is dividing. Follow the pipe from the end to the start.`,
+            ru: `Иди в обратную сторону! Обратное сложению — вычитание, умножению — деление. Двигайся по трубе с конца к началу.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `Önce sonuçtan eklenen sayıyı çıkar: ${result} − ${added} = ${p.mid}. Bu, ortadaki sayıdır.`,
+            en: `First subtract the added number from the result: ${result} − ${added} = ${p.mid}. That's the middle number.`,
+            ru: `Сначала вычти прибавленное из результата: ${result} − ${added} = ${p.mid}. Это среднее число.`
+          }),
+          apply: (c) => fireVal(c.querySelector('#pipe-mid'), p.mid)
+        },
+        {
+          text: L(lang, {
+            tr: `Şimdi ${isMul ? `${trDat(factor)} böl` : `${factor} ile çarp`}: ${p.mid} ${isMul ? '÷' : '×'} ${factor} = ${answer}. Başlangıç sayısı bu!`,
+            en: `Now ${isMul ? `divide by ${factor}` : `multiply by ${factor}`}: ${p.mid} ${isMul ? '÷' : '×'} ${factor} = ${answer}. That's the start!`,
+            ru: `Теперь ${isMul ? `раздели на ${factor}` : `умножь на ${factor}`}: ${p.mid} ${isMul ? '÷' : '×'} ${factor} = ${answer}. Это начало!`
+          }),
+          apply: (c) => fireVal(c.querySelector('#pipe-start'), answer)
+        }
+      ];
     },
     solution(lang) {
       const step2 = isMul ? `${p.mid} ÷ ${factor} = ${answer}` : `${p.mid} × ${factor} = ${answer}`;
@@ -86,13 +116,6 @@ function makePipelineTask(taskNo, mode) {
         tr: `Çözüm: Sondan geriye gideriz. Önce eklenen sayıyı çıkarırız: ${result} - ${added} = ${p.mid}. Sonra ${isMul ? 'böleriz' : 'çarparız'}: ${step2}. Başlangıçtaki sayı ${answer}'dir!`,
         en: `Solution: We go backwards. First subtract the added number: ${result} - ${added} = ${p.mid}. Then ${isMul ? 'divide' : 'multiply'}: ${step2}. The starting number is ${answer}!`,
         ru: `Решение: Идём с конца. Сначала вычитаем: ${result} - ${added} = ${p.mid}. Затем ${isMul ? 'делим' : 'умножаем'}: ${step2}. Начальное число — ${answer}!`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `Sondan başla: ${result} - ${added} = ${result - added}. Şimdi sıra ${isMul ? 'bölmede' : 'çarpmada'}!`,
-        en: `Start from the end: ${result} - ${added} = ${result - added}. Now ${isMul ? 'divide' : 'multiply'}!`,
-        ru: `Начни с конца: ${result} - ${added} = ${result - added}. Теперь ${isMul ? 'раздели' : 'умножь'}!`
       });
     },
     mistakes: [
@@ -148,7 +171,7 @@ function makePipelineTask(taskNo, mode) {
 }
 
 // ---------------------------------------------------------------------------
-// KAPI 2 — Lav Köprüsü (Örüntüler) & KAPI 6 — Gümüş Kuleler
+// KAPI 2 — Lav Köprüsü (Örüntüler)
 // ---------------------------------------------------------------------------
 function makeDoublingPatternTask(taskNo) {
   const s = randInt(2, 6);
@@ -169,25 +192,45 @@ function makeDoublingPatternTask(taskNo) {
         ru: `Задание ${taskNo}: В числовой последовательности ${seq}, [?] — какое число должно стоять вместо знака вопроса?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Sayıların arasındaki farkları incele! Farklar ${diffs.join(', ')} şeklinde ilerliyor — her artış bir öncekinin 2 katı. Sonraki artışı bulup son sayıya ekle.`,
-        en: `Hint: Look at the differences! They go ${diffs.join(', ')} — each increase is double the previous. Find the next increase and add it to the last number.`,
-        ru: `Подсказка: Посмотри на разности! Они идут ${diffs.join(', ')} — каждое прибавление вдвое больше предыдущего. Найди следующее и прибавь к последнему числу.`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Sayıların arasındaki FARKLARA bak. Soru işaretli kutulara farkları yazınca kural ortaya çıkar.`,
+            en: `Look at the DIFFERENCES between the numbers. Filling the boxes reveals the rule.`,
+            ru: `Посмотри на РАЗНОСТИ между числами. Заполнив окошки, ты увидишь правило.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `İlk fark: ${terms[1]} − ${terms[0]} = ${d}.`,
+            en: `First difference: ${terms[1]} − ${terms[0]} = ${d}.`,
+            ru: `Первая разность: ${terms[1]} − ${terms[0]} = ${d}.`
+          }),
+          apply: (c) => fireVal(c.querySelector('.seq-input[data-idx="0"]'), diffs[0])
+        },
+        {
+          text: L(lang, {
+            tr: `Farklar her adımda 2 katına çıkıyor: ${diffs.join(', ')}.`,
+            en: `The differences double each step: ${diffs.join(', ')}.`,
+            ru: `Разности удваиваются: ${diffs.join(', ')}.`
+          }),
+          apply: (c) => { for (let i = 1; i < diffs.length; i++) fireVal(c.querySelector(`.seq-input[data-idx="${i}"]`), diffs[i]); }
+        },
+        {
+          text: L(lang, {
+            tr: `Sonraki artış ${diffs[3]} × 2 = ${nextDiff}. Yani ${terms[4]} + ${nextDiff} = ${answer}.`,
+            en: `Next increase: ${diffs[3]} × 2 = ${nextDiff}. So ${terms[4]} + ${nextDiff} = ${answer}.`,
+            ru: `Следующее прибавление: ${diffs[3]} × 2 = ${nextDiff}. Значит ${terms[4]} + ${nextDiff} = ${answer}.`
+          })
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
         tr: `Çözüm: Artışlar +${diffs.join(', +')} şeklindedir; her artış öncekinin 2 katıdır. Sonraki artış ${diffs[3]} × 2 = ${nextDiff} olmalıdır. ${terms[4]} + ${nextDiff} = ${answer} olur.`,
         en: `Solution: The increases are +${diffs.join(', +')}; each is double the previous. The next increase is ${diffs[3]} × 2 = ${nextDiff}. So ${terms[4]} + ${nextDiff} = ${answer}.`,
         ru: `Решение: Прибавления +${diffs.join(', +')}; каждое вдвое больше предыдущего. Следующее: ${diffs[3]} × 2 = ${nextDiff}. Значит ${terms[4]} + ${nextDiff} = ${answer}.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `İlk farkı bul: ${terms[1]} - ${terms[0]} = ${d}. Sonra diğer farkları karşılaştır!`,
-        en: `Find the first difference: ${terms[1]} - ${terms[0]} = ${d}. Then compare the other differences!`,
-        ru: `Найди первую разность: ${terms[1]} - ${terms[0]} = ${d}. Затем сравни остальные!`
       });
     },
     mistakes: [
@@ -225,25 +268,45 @@ function makeRatioPatternTask(taskNo) {
         ru: `Задание ${taskNo}: Последовательность на другой половине моста: ${seq}, [?]. Какое число должно стоять вместо знака вопроса?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Sayıların katlarını incele! Her sayı bir öncekinin kaç katı? Bu çarpanı son sayıya uygula.`,
-        en: `Hint: Look at the ratios! Each number is how many times the previous one? Apply that multiplier to the last number.`,
-        ru: `Подсказка: Посмотри на отношения! Во сколько раз каждое число больше предыдущего? Примени этот множитель к последнему числу.`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Bu sefer farklara değil, KATLARA bak: her sayı bir öncekinin kaç katı?`,
+            en: `This time look at the RATIOS, not differences: each number is how many times the previous?`,
+            ru: `На этот раз смотри не на разности, а на ОТНОШЕНИЯ: во сколько раз каждое больше предыдущего?`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `${terms[1]} ÷ ${terms[0]} = ${r}. Demek ki ×${r}.`,
+            en: `${terms[1]} ÷ ${terms[0]} = ${r}. So ×${r}.`,
+            ru: `${terms[1]} ÷ ${terms[0]} = ${r}. Значит ×${r}.`
+          }),
+          apply: (c) => fireVal(c.querySelector('.seq-input[data-idx="0"]'), r)
+        },
+        {
+          text: L(lang, {
+            tr: `Her adımda ×${r}. Kutuların hepsine ${r} yaz.`,
+            en: `Every step is ×${r}. Put ${r} in all boxes.`,
+            ru: `Каждый шаг ×${r}. Впиши ${r} во все окошки.`
+          }),
+          apply: (c) => { for (let i = 1; i < 3; i++) fireVal(c.querySelector(`.seq-input[data-idx="${i}"]`), r); }
+        },
+        {
+          text: L(lang, {
+            tr: `Son sayıyı da ${r} ile çarp: ${terms[3]} × ${r} = ${answer}.`,
+            en: `Multiply the last number by ${r}: ${terms[3]} × ${r} = ${answer}.`,
+            ru: `Умножь последнее число на ${r}: ${terms[3]} × ${r} = ${answer}.`
+          })
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
         tr: `Çözüm: Her sayı bir öncekinin ${r} katıdır: ${terms[0]} × ${r} = ${terms[1]}, ${terms[1]} × ${r} = ${terms[2]}... O halde sonraki sayı: ${terms[3]} × ${r} = ${answer} olmalıdır.`,
         en: `Solution: Each number is ${r} times the previous: ${terms[0]} × ${r} = ${terms[1]}, ${terms[1]} × ${r} = ${terms[2]}... So the next number is ${terms[3]} × ${r} = ${answer}.`,
         ru: `Решение: Каждое число в ${r} раз больше предыдущего: ${terms[0]} × ${r} = ${terms[1]}, ${terms[1]} × ${r} = ${terms[2]}... Значит следующее: ${terms[3]} × ${r} = ${answer}.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `İlk iki sayıya bak: kaç KAT artmış? ${terms[1]} ÷ ${terms[0]} = ${r}. Kuralı yakaladın!`,
-        en: `From ${terms[0]} to ${terms[1]}: how many TIMES? ${terms[1]} ÷ ${terms[0]} = ${r}. You found the rule!`,
-        ru: `От ${terms[0]} до ${terms[1]}: во сколько РАЗ? ${terms[1]} ÷ ${terms[0]} = ${r}. Правило найдено!`
       });
     },
     mistakes: [
@@ -335,7 +398,7 @@ function makeFractionTask(taskNo, excludeCombo) {
   const remBoxes = 12 - vBoxes;
   const sBoxes = remBoxes / q;
   const leftBoxes = remBoxes - sBoxes;
-  const w = pick([1, 2, 3]);
+  const w = pick([1, 2, 3, 4, 5]);
   const leftEmeralds = leftBoxes * w;
   const answer = 12 * w;
 
@@ -350,25 +413,53 @@ function makeFractionTask(taskNo, excludeCombo) {
         ru: `Задание ${taskNo}: Ванесса берёт ${fracPhrase('ru', p)} волшебных изумрудов из мешка. Сэм берёт ${fracPhrase('ru', q)} оставшихся. Если осталось ${leftEmeralds} изумрудов, сколько их было в начале?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Şekil çizme stratejisini kullan! Bütünü 12 eş kutuya böl. Vanessa'nın payını (${vBoxes} kutu) karala. Kalan ${remBoxes} kutunun ${TR_FRAC[q]} (${sBoxes} kutu) Sam'e ver. Kalan kutuların kaç zümrüte denk geldiğini bul.`,
-        en: `Hint: Draw a model! Split the whole into 12 equal boxes. Shade Vanessa's share (${vBoxes} boxes), then give Sam ${sBoxes} of the remaining ${remBoxes} boxes. Find what each remaining box is worth.`,
-        ru: `Подсказка: Нарисуй модель! Раздели целое на 12 равных коробок. Закрась долю Ванессы (${vBoxes} коробок), затем отдай Сэму ${sBoxes} из оставшихся ${remBoxes}. Узнай, сколько стоит каждая оставшаяся коробка.`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Şekil çiz! Bütünü 12 eş kutuya böl — kesirleri kutularla göstermek çok kolaylaştırır.`,
+            en: `Draw a model! Split the whole into 12 equal boxes — fractions are much easier with boxes.`,
+            ru: `Нарисуй модель! Раздели целое на 12 равных коробок — с коробками дроби намного проще.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `Vanessa'nın payı: 12 ÷ ${p} = ${vBoxes} kutu. Geriye ${remBoxes} kutu kalır.`,
+            en: `Vanessa's share: 12 ÷ ${p} = ${vBoxes} boxes. ${remBoxes} boxes remain.`,
+            ru: `Доля Ванессы: 12 ÷ ${p} = ${vBoxes}. Остаётся ${remBoxes}.`
+          }),
+          apply: (c) => fireVal(c.querySelector('#frac-in-1'), vBoxes)
+        },
+        {
+          text: L(lang, {
+            tr: `Sam kalan ${remBoxes} kutunun ${TR_FRAC[q] || `1/${q}'i`} = ${sBoxes} kutu alır. Geriye ${leftBoxes} kutu kalır.`,
+            en: `Sam takes ${sBoxes} of the ${remBoxes} remaining boxes. ${leftBoxes} boxes remain.`,
+            ru: `Сэм берёт ${sBoxes} из ${remBoxes} оставшихся. Остаётся ${leftBoxes}.`
+          }),
+          apply: (c) => fireVal(c.querySelector('#frac-in-2'), sBoxes)
+        },
+        {
+          text: L(lang, {
+            tr: `${leftBoxes} kutu = ${leftEmeralds} zümrüt. Demek ki 1 kutu = ${w} zümrüt.`,
+            en: `${leftBoxes} boxes = ${leftEmeralds} emeralds. So 1 box = ${w} emeralds.`,
+            ru: `${leftBoxes} коробок = ${leftEmeralds} изумрудов. Значит 1 коробка = ${w}.`
+          }),
+          apply: (c) => fireVal(c.querySelector('#frac-in-3'), w)
+        },
+        {
+          text: L(lang, {
+            tr: `Başlangıçta 12 kutu vardı: 12 × ${w} = ${answer} zümrüt.`,
+            en: `There were 12 boxes at the start: 12 × ${w} = ${answer} emeralds.`,
+            ru: `В начале было 12 коробок: 12 × ${w} = ${answer} изумрудов.`
+          })
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
-        tr: `Çözüm: Bütünü 12 kutu sayalım. Vanessa ${vBoxes} kutu alır, ${remBoxes} kutu kalır. Sam kalan ${remBoxes} kutunun ${TR_FRAC[q]} (${sBoxes} kutu) alır, ${leftBoxes} kutu kalır. ${leftBoxes} kutu = ${leftEmeralds} zümrüt ise 1 kutu = ${w} zümrüttür. Başlangıç: 12 × ${w} = ${answer} zümrüt.`,
+        tr: `Çözüm: Bütünü 12 kutu sayalım. Vanessa ${vBoxes} kutu alır, ${remBoxes} kutu kalır. Sam kalan ${remBoxes} kutunun ${TR_FRAC[q] || `1/${q}'i`} (${sBoxes} kutu) alır, ${leftBoxes} kutu kalır. ${leftBoxes} kutu = ${leftEmeralds} zümrüt ise 1 kutu = ${w} zümrüttür. Başlangıç: 12 × ${w} = ${answer} zümrüt.`,
         en: `Solution: Count the whole as 12 boxes. Vanessa takes ${vBoxes}, leaving ${remBoxes}. Sam takes ${sBoxes} of them, leaving ${leftBoxes} boxes. ${leftBoxes} boxes = ${leftEmeralds} emeralds, so 1 box = ${w}. Start: 12 × ${w} = ${answer} emeralds.`,
         ru: `Решение: Считаем целое как 12 коробок. Ванесса берёт ${vBoxes}, остаётся ${remBoxes}. Сэм берёт ${sBoxes}, остаётся ${leftBoxes} коробок. ${leftBoxes} коробок = ${leftEmeralds} изумрудов, значит 1 коробка = ${w}. Начало: 12 × ${w} = ${answer} изумрудов.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `12 kutu çiz. Vanessa'nın payı: 12 ÷ ${p} = ${vBoxes} kutu. Geriye ${remBoxes} kutu kalır.`,
-        en: `Draw 12 boxes. Vanessa's share: 12 ÷ ${p} = ${vBoxes} boxes. ${remBoxes} boxes remain.`,
-        ru: `Нарисуй 12 коробок. Доля Ванессы: 12 ÷ ${p} = ${vBoxes}. Остаётся ${remBoxes} коробок.`
       });
     },
     mistakes: [
@@ -480,34 +571,48 @@ function makeScaleTask(taskNo, withExtra) {
           : `Задание ${taskNo}: Возраст старшего стража ровно в ${m} раз больше возраста младшего. Сумма их возрастов ${S}. Сколько лет старшему?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Genç muhafızı 1 kutu, baş muhafızı ${m} kutu${f ? ` + ${f}` : ''} olarak modelle. Toplam ${m + 1} kutu${f ? ` + ${f}` : ''} = ${S} olur. Önce 1 kutunun değerini bul!`,
-        en: `Hint: Model the young guard as 1 box and the head guard as ${m} boxes${f ? ` + ${f}` : ''}. Total: ${m + 1} boxes${f ? ` + ${f}` : ''} = ${S}. Find the value of 1 box first!`,
-        ru: `Подсказка: Младший — 1 коробка, старший — ${m} коробки${f ? ` + ${f}` : ''}. Всего: ${m + 1} коробок${f ? ` + ${f}` : ''} = ${S}. Сначала найди цену 1 коробки!`
+    hints(lang) {
+      const steps = [
+        {
+          text: L(lang, {
+            tr: `Kutu modeli kur: genç muhafız 1 kutu, baş muhafız ${m} kutu${f ? ` artı ${f}` : ''}. Toplam ${m + 1} kutu${f ? ` + ${f}` : ''} = ${S}.`,
+            en: `Build a box model: young guard = 1 box, head guard = ${m} boxes${f ? ` plus ${f}` : ''}. Total ${m + 1} boxes${f ? ` + ${f}` : ''} = ${S}.`,
+            ru: `Построй модель: младший = 1 коробка, старший = ${m} коробки${f ? ` плюс ${f}` : ''}. Всего ${m + 1} коробок${f ? ` + ${f}` : ''} = ${S}.`
+          })
+        }
+      ];
+      if (f) {
+        steps.push({
+          text: L(lang, {
+            tr: `Önce fazlalığı çıkar: ${S} − ${f} = ${S - f}. Bu, ${m + 1} eşit kutunun toplamı.`,
+            en: `First remove the extra: ${S} − ${f} = ${S - f}. That's the total of ${m + 1} equal boxes.`,
+            ru: `Сначала убери лишнее: ${S} − ${f} = ${S - f}. Это сумма ${m + 1} равных коробок.`
+          })
+        });
+      }
+      steps.push({
+        text: L(lang, {
+          tr: `1 kutu (genç muhafızın yaşı) = ${S - f} ÷ ${m + 1} = ${y}. Sürgüyü ${y}'ye getir, terazi dengelenir!`,
+          en: `1 box (young guard's age) = ${S - f} ÷ ${m + 1} = ${y}. Set the slider to ${y} and the scale balances!`,
+          ru: `1 коробка (возраст младшего) = ${S - f} ÷ ${m + 1} = ${y}. Поставь ползунок на ${y} — весы уравновесятся!`
+        }),
+        apply: (c) => { const s = c.querySelector('#scale-slider'); if (s) { s.value = String(y); s.dispatchEvent(new Event('input', { bubbles: true })); } }
       });
+      steps.push({
+        text: L(lang, {
+          tr: `Baş muhafız = ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer}.`,
+          en: `Head guard = ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer}.`,
+          ru: `Старший = ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer}.`
+        })
+      });
+      return steps;
     },
     solution(lang) {
-      const eq = f
-        ? `${S} - ${f} = ${S - f}; ${S - f} ÷ ${m + 1} = ${y}`
-        : `${S} ÷ ${m + 1} = ${y}`;
+      const eq = f ? `${S} - ${f} = ${S - f}; ${S - f} ÷ ${m + 1} = ${y}` : `${S} ÷ ${m + 1} = ${y}`;
       return L(lang, {
         tr: `Çözüm: Genç = 1 kat, Baş = ${m} kat${f ? ` + ${f}` : ''}. ${eq} (genç muhafızın yaşı). Baş muhafız: ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer} yaşındadır.`,
         en: `Solution: Young = 1 unit, Head = ${m} units${f ? ` + ${f}` : ''}. ${eq} (the young guard's age). Head guard: ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer}.`,
         ru: `Решение: Младший = 1 часть, старший = ${m} части${f ? ` + ${f}` : ''}. ${eq} (возраст младшего). Старший: ${m} × ${y}${f ? ` + ${f}` : ''} = ${answer}.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: f
-          ? `Önce fazlalığı düş: ${S} - ${f} = ${S - f}. Bu, ${m + 1} eşit kutunun toplamı!`
-          : `Toplam ${m + 1} eşit kutu eder: ${S} ÷ ${m + 1} = ${y}. Bu genç muhafızın yaşı!`,
-        en: f
-          ? `First remove the extra: ${S} - ${f} = ${S - f}. That's the total of ${m + 1} equal boxes!`
-          : `The total makes ${m + 1} equal boxes: ${S} ÷ ${m + 1} = ${y}. That's the young guard's age!`,
-        ru: f
-          ? `Сначала убери лишнее: ${S} - ${f} = ${S - f}. Это сумма ${m + 1} равных коробок!`
-          : `Всего ${m + 1} равных коробок: ${S} ÷ ${m + 1} = ${y}. Это возраст младшего!`
       });
     },
     mistakes: [
@@ -621,9 +726,8 @@ function makeScaleTask(taskNo, withExtra) {
 }
 
 // ---------------------------------------------------------------------------
-// KAPI 5 — Erzak Kamyonları (Yüzdeler) — YENİ: müfredata uygun
+// KAPI 5 — Erzak Kamyonları (Yüzdeler)
 // ---------------------------------------------------------------------------
-// Türkçe ek uyumu: %10'u, %20'si, %25'i, %30'u, %40'ı, %50'si
 const PCT_TR = { 10: "'u", 20: "'si", 25: "'i", 30: "'u", 40: "'ı", 50: "'si" };
 
 function makePercentTask(taskNo, excludeP) {
@@ -657,25 +761,41 @@ function makePercentTask(taskNo, excludeP) {
         ru: `Задание ${taskNo}: В ${taskNo === 1 ? 'первом' : 'втором'} грузовике ${N} ${item.ru}. ${P}% из них — ${what.ru}. Сколько их?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: %${P} demek, 100 eş parçadan ${P} tanesi demek. ${N} sayısını 100 parçaya bölüp ${P} parçasını al: ${N} × ${P} ÷ 100.`,
-        en: `Hint: ${P}% means ${P} out of 100 equal parts. Split ${N} into 100 parts and take ${P}: ${N} × ${P} ÷ 100.`,
-        ru: `Подсказка: ${P}% — это ${P} из 100 равных частей. Раздели ${N} на 100 частей и возьми ${P}: ${N} × ${P} ÷ 100.`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `%${P} demek, 100 eş parçadan ${P} tanesi demek. Yüzlük tabloda ${P} kutu boyamak bunu gösterir.`,
+            en: `${P}% means ${P} out of 100 equal parts. Shading ${P} cells in the hundred grid shows this.`,
+            ru: `${P}% — это ${P} из 100 равных частей. Закрась ${P} клеток в сотенной таблице.`
+          }),
+          apply: (c) => {
+            const cells = c.querySelectorAll('.percent-cell');
+            cells.forEach(cell => cell.classList.remove('percent-cell--shaded'));
+            for (let i = 0; i < P && i < cells.length; i++) cells[i].click();
+          }
+        },
+        {
+          text: L(lang, {
+            tr: `${N}'i 100 parçaya bölüp ${P} parçasını al: ${N} × ${P} = ${N * P}.`,
+            en: `Split ${N} into 100 parts and take ${P}: ${N} × ${P} = ${N * P}.`,
+            ru: `Раздели ${N} на 100 частей и возьми ${P}: ${N} × ${P} = ${N * P}.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `Şimdi 100'e böl: ${N * P} ÷ 100 = ${answer}.`,
+            en: `Now divide by 100: ${N * P} ÷ 100 = ${answer}.`,
+            ru: `Теперь раздели на 100: ${N * P} ÷ 100 = ${answer}.`
+          })
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
         tr: `Çözüm: ${N} sayısının %${P}${PCT_TR[P]} = ${N} × ${P} ÷ 100 = ${N * P} ÷ 100 = ${answer} olur.`,
         en: `Solution: ${P}% of ${N} = ${N} × ${P} ÷ 100 = ${N * P} ÷ 100 = ${answer}.`,
         ru: `Решение: ${P}% от ${N} = ${N} × ${P} ÷ 100 = ${N * P} ÷ 100 = ${answer}.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `Önce çarp: ${N} × ${P} = ${N * P}. Şimdi 100'e böl!`,
-        en: `First multiply: ${N} × ${P} = ${N * P}. Now divide by 100!`,
-        ru: `Сначала умножь: ${N} × ${P} = ${N * P}. Теперь раздели на 100!`
       });
     },
     mistakes: [
@@ -790,25 +910,37 @@ function makeArithmeticTask(taskNo, far) {
           : `Задание ${taskNo}: Первые башни — ${a} м, ${a + d} м, ${a + 2 * d} м. Какова высота башни №${n}?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Örüntü her adımda ${d} artıyor. ${n}. kuleye ulaşmak için ilk yüksekliğe (${a}) kaç kez ${d} eklemen gerekir? (${n} - 1 kez!)`,
-        en: `Hint: The pattern grows by ${d} each step. How many times must you add ${d} to ${a} to reach tower ${n}? (${n} - 1 times!)`,
-        ru: `Подсказка: Каждый шаг — прибавление ${d}. Сколько раз нужно прибавить ${d} к ${a}, чтобы дойти до башни ${n}? (${n} - 1 раз!)`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Önce örüntünün kuralını bul: her kule bir öncekinden kaç metre yüksek? Kutulara farkı yaz.`,
+            en: `First find the rule: how many meters taller is each tower? Type the difference in the boxes.`,
+            ru: `Сначала найди правило: на сколько выше каждая башня? Впиши разность в окошки.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `İlk fark: ${a + d} − ${a} = ${d}. Örüntü her adımda ${d} artıyor.`,
+            en: `First difference: ${a + d} − ${a} = ${d}. The pattern grows by ${d} each step.`,
+            ru: `Первая разность: ${a + d} − ${a} = ${d}. Узор растёт на ${d}.`
+          }),
+          apply: (c) => { for (let i = 0; i < 3; i++) fireVal(c.querySelector(`.seq-input[data-idx="${i}"]`), d); }
+        },
+        {
+          text: L(lang, {
+            tr: `${n}. kuleye ulaşmak için ${a}'ya ${n - 1} kez ${d} ekle: ${a} + ${n - 1} × ${d} = ${answer}.`,
+            en: `To reach tower ${n}, add ${d} to ${a}, ${n - 1} times: ${a} + ${n - 1} × ${d} = ${answer}.`,
+            ru: `Чтобы дойти до башни ${n}, прибавь ${d} к ${a} ${n - 1} раз: ${a} + ${n - 1} × ${d} = ${answer}.`
+          })
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
         tr: `Çözüm: Kural her adımda +${d}. ${n}. kule = ${a} + ${n - 1} × ${d} = ${a} + ${(n - 1) * d} = ${answer} olur.`,
         en: `Solution: The rule is +${d} each step. Tower ${n} = ${a} + ${n - 1} × ${d} = ${a} + ${(n - 1) * d} = ${answer}.`,
         ru: `Решение: Правило +${d} на шаг. Башня ${n} = ${a} + ${n - 1} × ${d} = ${a} + ${(n - 1) * d} = ${answer}.`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `Artışı bul: ${a + d} - ${a} = ${d}. Örüntü her adımda ${d} artıyor!`,
-        en: `Find the increase: ${a + d} - ${a} = ${d}. The pattern grows by ${d}!`,
-        ru: `Найди шаг: ${a + d} - ${a} = ${d}. Узор растёт на ${d}!`
       });
     },
     mistakes: [
@@ -877,7 +1009,7 @@ function makeArithmeticTask(taskNo, far) {
 function makeMonsterTask(taskNo, excludeN) {
   let n = randInt(7, 10);
   while (n === excludeN) n = randInt(7, 10);
-  const c = randInt(2, n - 2); // 3 gözlü sayısı
+  const c = randInt(2, n - 2);
   const E = n + 2 * c;
   const answer = c;
 
@@ -892,25 +1024,37 @@ function makeMonsterTask(taskNo, excludeN) {
         ru: `Задание ${taskNo}: В этой группе ${n} монстров; у каждого 1 или 3 глаза. Всего глаз ${E}. Сколько монстров с 3 глазами?`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Varsayımda bulun! Hepsi tek gözlü olsaydı ${n} göz olurdu. Fazladan ${E} - ${n} = ${E - n} göz var. Her 3 gözlü, tek gözlüden 2 fazla göz taşır: fazla gözleri 2'şer dağıt!`,
-        en: `Hint: Make an assumption! If all had 1 eye, there would be ${n} eyes. There are ${E} - ${n} = ${E - n} extra eyes. Each 3-eyed monster carries 2 extra: distribute them in pairs!`,
-        ru: `Подсказка: Сделай предположение! Если бы у всех был 1 глаз — ${n} глаз. Лишних: ${E} - ${n} = ${E - n}. Каждый трёхглазый несёт 2 лишних: раздай их по два!`
-      });
+    hints(lang) {
+      return [
+        {
+          text: L(lang, {
+            tr: `Varsayımda bulun: ya hepsi tek gözlü olsaydı? O zaman ${n} göz olurdu.`,
+            en: `Make an assumption: what if all had 1 eye? Then there would be ${n} eyes.`,
+            ru: `Сделай предположение: что если у всех 1 глаз? Тогда было бы ${n} глаз.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `Gerçekte ${E} göz var; fazladan ${E} − ${n} = ${E - n} göz. Bu fazlalık 3 gözlülerden geliyor.`,
+            en: `There are really ${E} eyes; the extra is ${E} − ${n} = ${E - n}. That comes from the 3-eyed ones.`,
+            ru: `На самом деле ${E} глаз; лишних ${E} − ${n} = ${E - n}. Они от трёхглазых.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `Her 3 gözlü, tek gözlüden 2 fazla göz taşır: ${E - n} ÷ 2 = ${c} canavar 3 gözlü. (+/− ile ${c}'ye getir, göz sayısı tutar!)`,
+            en: `Each 3-eyed has 2 extra eyes: ${E - n} ÷ 2 = ${c} monsters are 3-eyed. (Set it to ${c} with +/− and the eyes match!)`,
+            ru: `У каждого трёхглазого 2 лишних глаза: ${E - n} ÷ 2 = ${c}. (Поставь ${c} кнопками +/− — глаза совпадут!)`
+          }),
+          apply: (c2) => { const inc = c2.querySelector('#btn-inc-3'); if (inc) for (let i = 0; i < c; i++) inc.click(); }
+        }
+      ];
     },
     solution(lang) {
       return L(lang, {
         tr: `Çözüm: Hepsi tek gözlü olsaydı ${n} göz olurdu. Fark: ${E} - ${n} = ${E - n}. Her 3 gözlü +2 göz kattığından ${E - n} ÷ 2 = ${c} canavar 3 gözlüdür. Kontrol: ${c} × 3 + ${n - c} × 1 = ${E}. ✓`,
         en: `Solution: If all had 1 eye: ${n} eyes. Difference: ${E} - ${n} = ${E - n}. Each 3-eyed adds +2, so ${E - n} ÷ 2 = ${c} monsters have 3 eyes. Check: ${c} × 3 + ${n - c} × 1 = ${E}. ✓`,
         ru: `Решение: Если бы у всех 1 глаз: ${n}. Разница: ${E} - ${n} = ${E - n}. Каждый трёхглазый даёт +2, значит ${E - n} ÷ 2 = ${c}. Проверка: ${c} × 3 + ${n - c} × 1 = ${E}. ✓`
-      });
-    },
-    firstStep(lang) {
-      return L(lang, {
-        tr: `Hepsi tek gözlü olsaydı ${n} göz olurdu. Fazladan kaç göz var? ${E} - ${n} = ${E - n}.`,
-        en: `If all had one eye there would be ${n} eyes. How many extra? ${E} - ${n} = ${E - n}.`,
-        ru: `Если бы у всех был один глаз — ${n}. Сколько лишних? ${E} - ${n} = ${E - n}.`
       });
     },
     mistakes: [
@@ -1033,15 +1177,11 @@ function shuffled(arr) {
   return a;
 }
 
-// İki sağlam şablon: 'oneTrue' (tam 1 doğru) ve 'oneLie' (tam 1 yalan).
-// Her ikisinin de tek çözümü olduğu matematiksel olarak doğrulanmıştır.
 function makeLogicTask(taskNo, template) {
   const [X, Y, Z] = shuffled(CHEST_COLORS);
   let statements, answer, requiredTrue;
 
   if (template === 'oneTrue') {
-    // X: "Anahtar bu sandıkta." | Y: "Anahtar bu sandıkta değil." | Z: "Anahtar X'te değil."
-    // Tam 1 doğru → anahtar Y'dedir.
     statements = [
       { owner: X, pred: key => key === X, kind: 'here' },
       { owner: Y, pred: key => key !== Y, kind: 'notHere' },
@@ -1050,8 +1190,6 @@ function makeLogicTask(taskNo, template) {
     answer = Y;
     requiredTrue = 1;
   } else {
-    // X: "Anahtar Z'de." | Y: "Anahtar bu sandıkta." | Z: "Anahtar Y'de değil."
-    // Tam 1 yalan → anahtar Z'dedir.
     statements = [
       { owner: X, pred: key => key === Z, kind: 'inOther', ref: Z },
       { owner: Y, pred: key => key === Y, kind: 'here' },
@@ -1075,6 +1213,11 @@ function makeLogicTask(taskNo, template) {
     ? L(lang, { tr: "sadece TEK BİR ifade doğru (diğer ikisi yalan)", en: "EXACTLY ONE statement is true (the other two are lies)", ru: "РОВНО ОДНО утверждение истинно (два других — ложь)" })
     : L(lang, { tr: "sadece TEK BİR ifade yalan (diğer ikisi doğru)", en: "EXACTLY ONE statement is a lie (the other two are true)", ru: "РОВНО ОДНО утверждение ложно (два других — истина)" });
 
+  const clickChest = (color) => (c) => {
+    const chest = c.querySelector(`.chest-card[data-chest="${color}"]`);
+    if (chest) chest.click();
+  };
+
   return {
     answerType: 'choice',
     choices: CHEST_COLORS,
@@ -1087,12 +1230,34 @@ function makeLogicTask(taskNo, template) {
         ru: `Задание ${taskNo}: Надписи на сундуках:\n${lines}\nРешер говорит: ${ruleText('ru')}. В каком сундуке ключ? (Выбери сундук ниже!)`
       });
     },
-    hint(lang) {
-      return L(lang, {
-        tr: `İpucu: Varsayım stratejisi! Anahtarın sırayla her sandıkta olduğunu varsay; her varsayım için üç ifadenin doğru/yalan durumunu tablodan say. Kurala uyan tek satırı bul.`,
-        en: `Hint: Use assumptions! Suppose the key is in each chest in turn; for each assumption count the true/false statements in the table. Find the single row matching the rule.`,
-        ru: `Подсказка: Метод предположений! Предположи, что ключ в каждом сундуке по очереди; подсчитай истинные/ложные утверждения в таблице. Найди единственную подходящую строку.`
-      });
+    hints(lang) {
+      const firstColor = colorLabel(lang, CHEST_COLORS[0]);
+      const ansName = colorLabel(lang, answer);
+      return [
+        {
+          text: L(lang, {
+            tr: `Varsayım stratejisi: anahtarı sırayla her sandıkta varsay ve her durumda kaç ifadenin doğru olduğunu say.`,
+            en: `Assumption strategy: suppose the key is in each chest in turn and count how many statements are true.`,
+            ru: `Метод предположений: предположи, что ключ в каждом сундуке по очереди, и посчитай истинные утверждения.`
+          })
+        },
+        {
+          text: L(lang, {
+            tr: `İlk olarak "${firstColor} sandıkta" diye varsay ve sandığa tıkla; tabloda doğru sayısına bak.`,
+            en: `First assume "in the ${firstColor} chest" and click it; check the true count in the table.`,
+            ru: `Сначала предположи "в сундуке (${firstColor})" и нажми на него; посмотри число истин.`
+          }),
+          apply: clickChest(CHEST_COLORS[0])
+        },
+        {
+          text: L(lang, {
+            tr: `Kurala (${ruleText('tr')}) uyan tek satır ${ansName} sandık varsayımıdır. Cevap: ${ansName}!`,
+            en: `The only row matching the rule (${ruleText('en')}) is the ${ansName} chest. Answer: ${ansName}!`,
+            ru: `Единственная строка по правилу (${ruleText('ru')}) — сундук (${ansName}). Ответ: ${ansName}!`
+          }),
+          apply: clickChest(answer)
+        }
+      ];
     },
     solution(lang) {
       const ansName = colorLabel(lang, answer);
@@ -1107,14 +1272,6 @@ function makeLogicTask(taskNo, template) {
         tr: `Çözüm: Anahtar ${ansName} sandıkta olsun. İfadeler: ${states}. Bu durumda kural (${ruleText('tr')}) sağlanır. Diğer varsayımlarda kural bozulur. Anahtar ${ansName} sandıktadır!`,
         en: `Solution: Suppose the key is in the ${ansName} chest. Statements: ${states}. The rule (${ruleText('en')}) holds. Any other assumption breaks the rule. The key is in the ${ansName} chest!`,
         ru: `Решение: Пусть ключ в сундуке (${ansName}). Утверждения: ${states}. Правило (${ruleText('ru')}) выполняется. Другие варианты его нарушают. Ключ в сундуке (${ansName})!`
-      });
-    },
-    firstStep(lang) {
-      const firstColor = colorLabel(lang, CHEST_COLORS[0]);
-      return L(lang, {
-        tr: `Önce "anahtar ${firstColor} sandıkta" diye varsay ve üç ifadeyi tek tek kontrol et. Tabloyu kullan!`,
-        en: `First assume "the key is in the ${firstColor} chest" and check each of the three statements. Use the table!`,
-        ru: `Сначала предположи: "ключ в сундуке (${firstColor})" — и проверь все три утверждения по таблице!`
       });
     },
     mistakes: CHEST_COLORS.filter(c => c !== answer).map(color => ({
@@ -1173,7 +1330,7 @@ function makeLogicTask(taskNo, template) {
       chests.forEach(chest => {
         chest.addEventListener('click', () => {
           playClick();
-          chests.forEach(c => c.classList.remove('chest-card--active'));
+          chests.forEach(cc => cc.classList.remove('chest-card--active'));
           container.querySelectorAll('tr[data-assume]').forEach(r => r.classList.remove('row-assume--active'));
           const assume = chest.getAttribute('data-chest');
           chest.classList.add('chest-card--active');
@@ -1199,27 +1356,29 @@ function makeLogicTask(taskNo, template) {
 }
 
 // ---------------------------------------------------------------------------
-// Kapı başına görev üretimi
+// Kapı başına görev üretimi — iki görevin CEVAPLARI farklı olacak şekilde
 // ---------------------------------------------------------------------------
+function distinctPair(genA, genB) {
+  const a = genA();
+  let b = genB(a);
+  let tries = 0;
+  while (tries < 40 && String(b.answer) === String(a.answer)) {
+    b = genB(a);
+    tries++;
+  }
+  return [a, b];
+}
+
 export function generateTasks(gateId) {
   switch (gateId) {
-    case 1: return [makePipelineTask(1, 'mul'), makePipelineTask(2, 'div')];
-    case 2: return [makeDoublingPatternTask(1), makeRatioPatternTask(2)];
-    case 3: {
-      const t1 = makeFractionTask(1, null);
-      return [t1, makeFractionTask(2, t1.combo)];
-    }
-    case 4: return [makeScaleTask(1, false), makeScaleTask(2, true)];
-    case 5: {
-      const t1 = makePercentTask(1, null);
-      return [t1, makePercentTask(2, t1.P)];
-    }
-    case 6: return [makeArithmeticTask(1, false), makeArithmeticTask(2, true)];
-    case 7: {
-      const t1 = makeMonsterTask(1, null);
-      return [t1, makeMonsterTask(2, t1.n)];
-    }
-    case 8: return [makeLogicTask(1, 'oneTrue'), makeLogicTask(2, 'oneLie')];
+    case 1: return distinctPair(() => makePipelineTask(1, 'mul'), () => makePipelineTask(2, 'div'));
+    case 2: return distinctPair(() => makeDoublingPatternTask(1), () => makeRatioPatternTask(2));
+    case 3: return distinctPair(() => makeFractionTask(1, null), (a) => makeFractionTask(2, a.combo));
+    case 4: return distinctPair(() => makeScaleTask(1, false), () => makeScaleTask(2, true));
+    case 5: return distinctPair(() => makePercentTask(1, null), (a) => makePercentTask(2, a.P));
+    case 6: return distinctPair(() => makeArithmeticTask(1, false), () => makeArithmeticTask(2, true));
+    case 7: return distinctPair(() => makeMonsterTask(1, null), (a) => makeMonsterTask(2, a.n));
+    case 8: return distinctPair(() => makeLogicTask(1, 'oneTrue'), () => makeLogicTask(2, 'oneLie'));
     default: return [];
   }
 }
