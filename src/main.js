@@ -954,8 +954,10 @@ function changeLanguage(lang) {
   const teaserVideo = $('teaserVideo');
   const srcEl = teaserVideo ? teaserVideo.querySelector('source') : null;
   if (srcEl) {
-    const newSrc = lang === 'en' ? '/intro_eng.mp4' : lang === 'ru' ? '/intro_rusca.mp4' : '/intro.mp4';
-    if (srcEl.getAttribute('src') !== newSrc) {
+    // Göreceli yol: GitHub Pages alt-dizininde de (ör. /kraliceyi-kurtarmak-v3/) doğru çözümlenir
+    const newSrc = lang === 'en' ? 'intro_eng.mp4' : lang === 'ru' ? 'intro_rusca.mp4' : 'intro.mp4';
+    const cur = (srcEl.getAttribute('src') || '').replace(/^\.?\//, '');
+    if (cur !== newSrc) {
       const wasPlaying = !teaserVideo.paused;
       srcEl.setAttribute('src', newSrc);
       teaserVideo.load();
