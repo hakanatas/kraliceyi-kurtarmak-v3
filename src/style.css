@@ -723,6 +723,30 @@ header {
   padding-right: 44px;
 }
 
+/* Matematiksel kesir: pay / payda, ortada çizgili */
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+  margin: 0 0.18em;
+  font-weight: 700;
+  font-size: 0.82em;
+  position: relative;
+  top: -0.05em;
+}
+.frac-n {
+  display: block;
+  padding: 0 0.32em 2px;
+  border-bottom: 2px solid currentColor;
+}
+.frac-d {
+  display: block;
+  padding: 2px 0.32em 0;
+}
+
 /* Character Dialogue Box */
 .dialogue-box {
   display: flex;
@@ -2802,6 +2826,11 @@ h1, h2, h3, h4, h5, h6, .hero-title, .about-title, .logo {
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Kesir çizgisi kağıtta net siyah görünsün */
+  .frac-n {
+    border-bottom-color: #000 !important;
   }
   
   /* Hide all elements except the printable container */

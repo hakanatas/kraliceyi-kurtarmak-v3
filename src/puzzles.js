@@ -7,7 +7,7 @@
 // görselin üstünde DİNAMİK olarak gösterilir (kutu dolar, terazi dengelenir,
 // hücre boyanır, sandık seçilir...). Yıldız Tozu kaldırıldı.
 import { playClick } from './audio.js';
-import { ui } from './i18n.js';
+import { ui, frac } from './i18n.js';
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -381,11 +381,12 @@ const FRAC_COMBOS = [
   { p: 3, q: 2 }, { p: 3, q: 4 }, { p: 2, q: 2 }, { p: 2, q: 3 },
   { p: 4, q: 3 }, { p: 6, q: 2 }, { p: 6, q: 5 }, { p: 2, q: 6 }
 ];
-const TR_FRAC = { 2: "yarısını", 3: "1/3'ünü", 4: "1/4'ünü", 5: "1/5'ini", 6: "1/6'sını" };
+// Kesir ifadesi: gerçek matematiksel (pay/payda) biçim + dile uygun bağlaç.
+// "kadarını / of / от" yapısı her kesir için dilbilgisel olarak temiz çalışır.
 function fracPhrase(lang, n) {
-  if (lang === 'tr') return TR_FRAC[n];
-  if (lang === 'ru') return n === 2 ? 'половину' : `1/${n}`;
-  return n === 2 ? 'half' : `1/${n}`;
+  if (lang === 'en') return `${frac(1, n)} of`;
+  if (lang === 'ru') return `${frac(1, n)} от`;
+  return `${frac(1, n)} kadarını`;
 }
 
 function makeFractionTask(taskNo, excludeCombo) {
@@ -409,7 +410,7 @@ function makeFractionTask(taskNo, excludeCombo) {
     question(lang) {
       return L(lang, {
         tr: `${taskNo}. Görev: Bir torbadaki sihirli zümrütlerin ${fracPhrase('tr', p)} Vanessa alıyor. Kalan zümrütlerin ${fracPhrase('tr', q)} Sam alıyor. Geriye ${leftEmeralds} zümrüt kaldığına göre, başlangıçta kaç zümrüt vardı?`,
-        en: `Task ${taskNo}: Vanessa takes ${fracPhrase('en', p)} of the magic emeralds in a bag. Sam takes ${fracPhrase('en', q)} of the remaining emeralds. If ${leftEmeralds} emeralds are left, how many emeralds were there at the start?`,
+        en: `Task ${taskNo}: Vanessa takes ${fracPhrase('en', p)} the magic emeralds in a bag. Sam takes ${fracPhrase('en', q)} the remaining emeralds. If ${leftEmeralds} emeralds are left, how many emeralds were there at the start?`,
         ru: `Задание ${taskNo}: Ванесса берёт ${fracPhrase('ru', p)} волшебных изумрудов из мешка. Сэм берёт ${fracPhrase('ru', q)} оставшихся. Если осталось ${leftEmeralds} изумрудов, сколько их было в начале?`
       });
     },
@@ -432,9 +433,9 @@ function makeFractionTask(taskNo, excludeCombo) {
         },
         {
           text: L(lang, {
-            tr: `Sam kalan ${remBoxes} kutunun ${TR_FRAC[q] || `1/${q}'i`} = ${sBoxes} kutu alır. Geriye ${leftBoxes} kutu kalır.`,
-            en: `Sam takes ${sBoxes} of the ${remBoxes} remaining boxes. ${leftBoxes} boxes remain.`,
-            ru: `Сэм берёт ${sBoxes} из ${remBoxes} оставшихся. Остаётся ${leftBoxes}.`
+            tr: `Sam kalan ${remBoxes} kutunun ${frac(1, q)} kadarını = ${sBoxes} kutu alır. Geriye ${leftBoxes} kutu kalır.`,
+            en: `Sam takes ${frac(1, q)} of the ${remBoxes} remaining boxes = ${sBoxes}. ${leftBoxes} boxes remain.`,
+            ru: `Сэм берёт ${frac(1, q)} от ${remBoxes} оставшихся = ${sBoxes}. Остаётся ${leftBoxes}.`
           }),
           apply: (c) => fireVal(c.querySelector('#frac-in-2'), sBoxes)
         },
@@ -457,9 +458,9 @@ function makeFractionTask(taskNo, excludeCombo) {
     },
     solution(lang) {
       return L(lang, {
-        tr: `Çözüm: Bütünü 12 kutu sayalım. Vanessa ${vBoxes} kutu alır, ${remBoxes} kutu kalır. Sam kalan ${remBoxes} kutunun ${TR_FRAC[q] || `1/${q}'i`} (${sBoxes} kutu) alır, ${leftBoxes} kutu kalır. ${leftBoxes} kutu = ${leftEmeralds} zümrüt ise 1 kutu = ${w} zümrüttür. Başlangıç: 12 × ${w} = ${answer} zümrüt.`,
-        en: `Solution: Count the whole as 12 boxes. Vanessa takes ${vBoxes}, leaving ${remBoxes}. Sam takes ${sBoxes} of them, leaving ${leftBoxes} boxes. ${leftBoxes} boxes = ${leftEmeralds} emeralds, so 1 box = ${w}. Start: 12 × ${w} = ${answer} emeralds.`,
-        ru: `Решение: Считаем целое как 12 коробок. Ванесса берёт ${vBoxes}, остаётся ${remBoxes}. Сэм берёт ${sBoxes}, остаётся ${leftBoxes} коробок. ${leftBoxes} коробок = ${leftEmeralds} изумрудов, значит 1 коробка = ${w}. Начало: 12 × ${w} = ${answer} изумрудов.`
+        tr: `Çözüm: Bütünü 12 kutu sayalım. Vanessa ${frac(1, p)} kadarını (${vBoxes} kutu) alır, ${remBoxes} kutu kalır. Sam kalan ${remBoxes} kutunun ${frac(1, q)} kadarını (${sBoxes} kutu) alır, ${leftBoxes} kutu kalır. ${leftBoxes} kutu = ${leftEmeralds} zümrüt ise 1 kutu = ${w} zümrüttür. Başlangıç: 12 × ${w} = ${answer} zümrüt.`,
+        en: `Solution: Count the whole as 12 boxes. Vanessa takes ${frac(1, p)} (${vBoxes} boxes), leaving ${remBoxes}. Sam takes ${frac(1, q)} of them (${sBoxes} boxes), leaving ${leftBoxes} boxes. ${leftBoxes} boxes = ${leftEmeralds} emeralds, so 1 box = ${w}. Start: 12 × ${w} = ${answer} emeralds.`,
+        ru: `Решение: Считаем целое как 12 коробок. Ванесса берёт ${frac(1, p)} (${vBoxes} коробок), остаётся ${remBoxes}. Сэм берёт ${frac(1, q)} от остатка (${sBoxes}), остаётся ${leftBoxes} коробок. ${leftBoxes} коробок = ${leftEmeralds} изумрудов, значит 1 коробка = ${w}. Начало: 12 × ${w} = ${answer} изумрудов.`
       });
     },
     mistakes: [

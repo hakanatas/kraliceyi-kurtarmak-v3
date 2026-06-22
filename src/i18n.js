@@ -4,6 +4,12 @@ import { uiTranslations as baseUI, puzzleTranslations as basePz } from './transl
 
 const LANGS = ['tr', 'en', 'ru'];
 
+// Kesirleri gerçek matematiksel biçimde (pay / payda, çizgili) gösteren bileşen.
+// 5. sınıf için "1/3" düz yazımından çok daha okunaklı. HTML bağlamlarında kullanılır.
+export function frac(n, d) {
+  return `<span class="frac" role="math" aria-label="${n}/${d}"><span class="frac-n">${n}</span><span class="frac-d">${d}</span></span>`;
+}
+
 // ---------------------------------------------------------------------------
 // 1) Yeni / geçersiz kılınan arayüz metinleri
 // ---------------------------------------------------------------------------
@@ -335,7 +341,7 @@ const wsAnswers = {
   tr: {
     1: ["12  (60 - 12 = 48, 48 ÷ 4 = 12)", "30  (8 + 7 = 15, 15 × 2 = 30)"],
     2: ["95  (artışlar: +6, +12, +24, +48)", "256  (her sayı bir öncekinin 4 katı)"],
-    3: ["22  (30'un 2/5'i = 12, 1/3'ü = 10, 12 + 10 = 22)", "60 TL  (kalan 30 TL bütünün yarısıdır)"],
+    3: [`22  (30'un ${frac(2,5)} kadarı = 12, ${frac(1,3)} kadarı = 10, 12 + 10 = 22)`, "60 TL  (kalan 30 TL bütünün yarısıdır)"],
     4: ["Elif 48 kg  (3 kat = 72, 1 kat = 24)", "Baba 34  (44 - 4 = 40, 40 ÷ 4 = 10, 3×10+4 = 34)"],
     5: ["20 sandık  (80 × 25 ÷ 100)", "80 paket  (200 × 40 ÷ 100)"],
     6: ["38  (8, 14, 20, 26, 32, 38)", "47 cm  (5 + 6×7 = 47)"],
@@ -345,7 +351,7 @@ const wsAnswers = {
   en: {
     1: ["12  (60 - 12 = 48, 48 ÷ 4 = 12)", "30  (8 + 7 = 15, 15 × 2 = 30)"],
     2: ["95  (increases: +6, +12, +24, +48)", "256  (each number is 4 times the previous)"],
-    3: ["22  (2/5 of 30 = 12, 1/3 of 30 = 10, 12 + 10 = 22)", "60 TL  (the remaining 30 TL is half of the whole)"],
+    3: [`22  (${frac(2,5)} of 30 = 12, ${frac(1,3)} of 30 = 10, 12 + 10 = 22)`, "60 TL  (the remaining 30 TL is half of the whole)"],
     4: ["Elif 48 kg  (3 units = 72, 1 unit = 24)", "Father 34  (44 - 4 = 40, 40 ÷ 4 = 10, 3×10+4 = 34)"],
     5: ["20 crates  (80 × 25 ÷ 100)", "80 packages  (200 × 40 ÷ 100)"],
     6: ["38  (8, 14, 20, 26, 32, 38)", "47 cm  (5 + 6×7 = 47)"],
@@ -355,7 +361,7 @@ const wsAnswers = {
   ru: {
     1: ["12  (60 - 12 = 48, 48 ÷ 4 = 12)", "30  (8 + 7 = 15, 15 × 2 = 30)"],
     2: ["95  (прибавления: +6, +12, +24, +48)", "256  (каждое число в 4 раза больше предыдущего)"],
-    3: ["22  (2/5 от 30 = 12, 1/3 от 30 = 10, 12 + 10 = 22)", "60 лир  (оставшиеся 30 лир — половина целого)"],
+    3: [`22  (${frac(2,5)} от 30 = 12, ${frac(1,3)} от 30 = 10, 12 + 10 = 22)`, "60 лир  (оставшиеся 30 лир — половина целого)"],
     4: ["Элиф 48 кг  (3 части = 72, 1 часть = 24)", "Отец 34  (44 - 4 = 40, 40 ÷ 4 = 10, 3×10+4 = 34)"],
     5: ["20 ящиков  (80 × 25 ÷ 100)", "80 пакетов  (200 × 40 ÷ 100)"],
     6: ["38  (8, 14, 20, 26, 32, 38)", "47 см  (5 + 6×7 = 47)"],
@@ -398,6 +404,22 @@ const kazanimlar = {
   }
 };
 
+// 3. Kapı çalışma kağıdı: kesirler gerçek matematiksel biçimde gösterilsin
+const gate3WorksheetFix = {
+  tr: {
+    q1: `30 sayısının ${frac(2,5)} kadarı ile ${frac(1,3)} kadarının toplamı kaçtır? (Bütünü modelleme kutularına ayırıp boyayarak çözünüz.)`,
+    q2: `Hakan cebindeki paranın ${frac(1,4)} kadarını harcıyor. Kalan parasının ${frac(1,3)} kadarı ile kitap alıyor. Geriye 30 TL'si kaldığına göre başlangıçta kaç TL'si vardı? (Şekil çizerek kutu modeli oluşturunuz.)`
+  },
+  en: {
+    q1: `What is the sum of ${frac(2,5)} of 30 and ${frac(1,3)} of 30? (Split the whole into model boxes and shade them.)`,
+    q2: `Hakan spends ${frac(1,4)} of his money. With ${frac(1,3)} of what remains he buys a book. He has 30 TL left, so how much did he start with? (Draw a box model.)`
+  },
+  ru: {
+    q1: `Чему равна сумма ${frac(2,5)} от 30 и ${frac(1,3)} от 30? (Раздели целое на коробки и закрась.)`,
+    q2: `Хакан тратит ${frac(1,4)} своих денег. На ${frac(1,3)} остатка покупает книгу. Осталось 30 лир — сколько было вначале? (Нарисуй модель коробок.)`
+  }
+};
+
 export function gateText(lang, id) {
   const base = (basePz[lang] && basePz[lang][id]) ? basePz[lang][id] : basePz['tr'][id];
   if (id === 5) {
@@ -411,6 +433,10 @@ export function gateText(lang, id) {
   const ws = { ...base.worksheet };
   if (id === 8) {
     const fix = gate8WorksheetFix[lang] || gate8WorksheetFix.tr;
+    ws.q1 = fix.q1;
+    ws.q2 = fix.q2;
+  } else if (id === 3) {
+    const fix = gate3WorksheetFix[lang] || gate3WorksheetFix.tr;
     ws.q1 = fix.q1;
     ws.q2 = fix.q2;
   }

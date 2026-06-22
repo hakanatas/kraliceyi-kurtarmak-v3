@@ -542,17 +542,17 @@ function openPuzzleModal(gateId, isAlreadySolved = false) {
   wsTopic.textContent = meta.worksheet.topic;
   wsOutcome.textContent = meta.worksheet.outcome;
   wsKazanim.textContent = meta.kazanim;
-  wsQ1Text.textContent = meta.worksheet.q1;
-  wsQ2Text.textContent = meta.worksheet.q2;
+  wsQ1Text.innerHTML = meta.worksheet.q1;
+  wsQ2Text.innerHTML = meta.worksheet.q2;
   wsPrintTitle.textContent = `${t('chapter-lbl')} ${gateId}: ${meta.worksheet.title.toUpperCase()}`;
   wsPrintTopic.textContent = meta.worksheet.topic;
   wsPrintOutcome.textContent = meta.worksheet.outcome;
   wsPrintKazanim.textContent = meta.kazanim;
   wsPrintNarrative.textContent = meta.narrative;
-  wsPrintQ1Text.textContent = meta.worksheet.q1;
-  wsPrintQ2Text.textContent = meta.worksheet.q2;
-  wsPrintA1.textContent = meta.answers[0];
-  wsPrintA2.textContent = meta.answers[1];
+  wsPrintQ1Text.innerHTML = meta.worksheet.q1;
+  wsPrintQ2Text.innerHTML = meta.worksheet.q2;
+  wsPrintA1.innerHTML = meta.answers[0];
+  wsPrintA2.innerHTML = meta.answers[1];
 
   btnSubmitAnswer.removeAttribute('data-mode');
   padlockWrapper.classList.remove('padlock-wrapper--unlocked');
@@ -563,7 +563,7 @@ function openPuzzleModal(gateId, isAlreadySolved = false) {
     padlockWrapper.classList.add('padlock-wrapper--unlocked');
     currentTaskIndex = tasks.length - 1;
     const task = tasks[currentTaskIndex];
-    questionText.textContent = task.question(currentLang);
+    questionText.innerHTML = task.question(currentLang);
     taskProgressLabel.textContent = t('modal-completed');
     task.render(visWorkarea, currentLang);
     setupAnswerUI(task, true);
@@ -599,7 +599,7 @@ function setupTask(idx) {
   speechName.textContent = meta.character;
   speechText.textContent = meta.narrative;
 
-  questionText.textContent = task.question(currentLang);
+  questionText.innerHTML = task.question(currentLang);
   taskProgressLabel.textContent = `${t('modal-task-lbl')} ${idx + 1} / ${tasks.length}`;
   visWorkarea.innerHTML = '';
   task.render(visWorkarea, currentLang);
@@ -700,7 +700,15 @@ function speakQuestion() {
   if (!window.speechSynthesis) return;
   playSoundEffect(playClick);
   window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(questionText.textContent);
+  // Kesirleri sesli okurken "pay bölü payda" olarak söylet (görsel kesir glyph'i yerine)
+  const sep = { tr: ' bölü ', en: ' over ', ru: ' делить на ' }[currentLang] || ' / ';
+  const clone = questionText.cloneNode(true);
+  clone.querySelectorAll('.frac').forEach(f => {
+    const n = f.querySelector('.frac-n')?.textContent || '';
+    const d = f.querySelector('.frac-d')?.textContent || '';
+    f.replaceWith(document.createTextNode(`${n}${sep}${d}`));
+  });
+  const utter = new SpeechSynthesisUtterance(clone.textContent);
   utter.lang = { tr: 'tr-TR', en: 'en-US', ru: 'ru-RU' }[currentLang];
   utter.rate = 0.95;
   window.speechSynthesis.speak(utter);
@@ -1004,7 +1012,7 @@ function changeLanguage(lang) {
     kazanimBadge.textContent = `${t('kazanim-lbl')} ${meta.kazanim}`;
     speechName.textContent = meta.character;
     speechText.textContent = meta.narrative;
-    questionText.textContent = task.question(lang);
+    questionText.innerHTML = task.question(lang);
     visWorkarea.innerHTML = '';
     task.render(visWorkarea, lang);
     // Açılmış ipucu adımlarını yeni dilde yeniden kur ve görseli tazele
